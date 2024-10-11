@@ -1,0 +1,222 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+from matplotlib.animation import FuncAnimation
+matplotlib.rcParams['animation.ffmpeg_path'] = "C:\\Users\\Ricardo Valadas\\Downloads\\ffmpeg-7.0.2-essentials_build\\ffmpeg-7.0.2-essentials_build\\bin\\ffmpeg.exe"
+# Plotting settings
+# plt.rc('font', family='serif', serif='Times')
+# plt.rc('text', usetex=True)
+# plt.rc('xtick', labelsize=10)
+# plt.rc('ytick', labelsize=10)
+# plt.rc('axes', labelsize=10)
+
+def forward_kinematics(config_data, s, eps, pose_previous_frame):
+    T, _ = config_data.shape
+    strain_data = config_data.copy()
+    strain_data[:,2] = strain_data[:,2] + 1
+
+    k_be = strain_data[:,0]
+    sigma_sh = strain_data[:,1]
+    sigma_ax = strain_data[:,2]
+    # add small eps for numerical stability in bending
+    k_be_sign = np.sign(k_be)
+    # set zero sign to 1 (i.e. positive)
+    k_be_sign = np.where(k_be_sign == 0, 1, k_be_sign)
+    # add eps to bending
+    # k_be_eps = k_be + k_be_sign * eps
+    k_be_eps = np.select(
+        [np.abs(k_be) < eps, np.abs(k_be) >= eps],
+        [k_be_sign*eps, k_be]
+    )
+
+    # Compute the pose from strains through closed-form FK
+    
+    px = sigma_sh * (np.sin(k_be_eps * s))/k_be_eps + \
+        sigma_ax * (np.cos(k_be_eps * s) - 1)/k_be_eps
+    py = sigma_sh * (1 - np.cos(k_be_eps * s))/k_be_eps + \
+        sigma_ax * (np.sin(k_be_eps * s))/k_be_eps
+    theta = k_be_eps * s
+
+    # Pose w.r.t the frame of the previous segment
+    pose = np.array([px, py, theta]).T
+
+    # Change pose to be w.r.t the base frame
+    pose_base_frame = np.zeros((T,3))
+    # Compute the angle w.r.t the base frame
+    pose_base_frame[:,2] = pose_previous_frame[:,2] + pose[:,2]
+    # Compute the position w.r.t the base frame
+    rot_mat = np.transpose((np.array([
+        [np.cos(pose_previous_frame[:,2]), -np.sin(pose_previous_frame[:,2])],
+        [np.sin(pose_previous_frame[:,2]), np.cos(pose_previous_frame[:,2])]
+    ])), (2,0,1))
+    pose_base_frame[:,:2] = pose_previous_frame[:,:2] + np.einsum('BNi,Bi ->BN', rot_mat, pose[:,:2])
+    
+    # # Change pose to be w.r.t the base frame
+    # # Compute the angles w.r.t the base frame
+    # pose_base_frame = np.cumsum(pose, axis=2)
+    # for i in range(T):
+    #     for j in range(1, N):
+    #         theta = pose_base_frame[i,j,2]
+    #         # Compute the position w.r.t the base frame
+    #         pose_base_frame[i,j,:2] = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]) @ pose[i,j,:2]
+
+
+    return pose_base_frame
+
+def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data_2 = None):
+    # point coordinates of the points where the error will be calculated
+    s_image_cum = np.cumsum(seg_length_itrs[0])
+
+    T, _, _ = config_data.shape
+    N = 20
+    pose_data_iterations = []
+    if config_data_2 is not None:
+        pose_data_iterations_2 = []
+    error_metric_iterations = []
+    for itr in range(1, len(seg_length_itrs)):
+        # cumsum of the segment lengths
+        s_itr_cum = np.cumsum(seg_length_itrs[itr])
+        # add zero to the beginning of the array
+        s_itr_cum_padded = np.concatenate([np.array([0.0]), s_itr_cum], axis=0, dtype=np.float32)
+
+        # pose of the segment frame to which the FK are being computed w.r.t
+        # for the first segment, it's the base frame, which is always the same at every frame
+        pose_previous_frame = np.zeros((T,3))
+        prev_segment_idx = 0
+
+        pose_itr = np.zeros((T,N,3))
+        if config_data_2 is not None:
+            pose_itr_2 = np.zeros((T,N,3))
+
+        for id_seg, s_point in enumerate(s_image_cum):
+            # determine in which segment the point is located
+            # use argmax to find the last index where the condition is true
+            s_point = np.float32(s_point)
+            segment_idx = (
+                s_itr_cum.shape[0] - 1 - np.argmax((s_point > s_itr_cum_padded[:-1])[::-1]).astype(int)
+            )
+            
+            if segment_idx != prev_segment_idx:
+                pose_previous_frame = pose_itr[:, id_seg - 1, :]
+                prev_segment_idx = segment_idx
+
+            # point coordinate along the segment in the interval [0, l_segment]
+            s_segment = s_point - s_itr_cum_padded[segment_idx]
+
+            pose = forward_kinematics(config_data[:,segment_idx,:], s_segment, eps, pose_previous_frame)
+            pose_itr[:,id_seg,:] = pose
+
+            if config_data_2 is not None:
+                pose_2 = forward_kinematics(config_data_2[:,segment_idx,:], s_segment, eps, pose_previous_frame)
+                pose_itr_2[:,id_seg,:] = pose_2
+        
+        pose_data_iterations.append(pose_itr)
+        if config_data_2 is not None:
+            pose_data_iterations_2.append(pose_itr_2)
+
+        # Create the figure and axis
+        fig, ax = plt.subplots()
+        ax.set_xlim(-0.15, 0.1)
+        ax.set_ylim(-0.03, 0.15)
+        ax.grid(True)
+
+        # Initialize the scatter plots for A and B
+        plot_pose_data, = ax.plot([], [], 'b-o', label='Original image')
+        if high_shear_stiffness == True:
+            plot_pose_itr, = ax.plot([], [], 'r-o', label= 'Dynamic model - 1 segment - wo/ shear')
+        else:
+            plot_pose_itr, = ax.plot([], [], 'r-o', label= 'Dynamic model - 1 segment - all strains')
+        if config_data_2 is not None:
+            plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= 'Dynamic model - 1 segment - all strains')
+
+        # Initialize the legend
+        ax.legend()
+
+        # Initialization function
+        def init():
+            plot_pose_data.set_data([], [])
+            plot_pose_itr.set_data([], [])
+            if config_data_2 is not None:
+                plot_pose_itr_2.set_data([], [])
+                return plot_pose_data, plot_pose_itr, plot_pose_itr_2
+            else:
+                return plot_pose_data, plot_pose_itr
+
+        # Update function
+        def update(frame):
+            plot_pose_data.set_data(pose_data[frame,:,0], pose_data[frame,:,1])
+            plot_pose_itr.set_data(pose_itr[frame,:,0], pose_itr[frame,:,1])
+            if config_data_2 is not None:
+                plot_pose_itr_2.set_data(pose_itr_2[frame,:,0], pose_itr_2[frame,:,1])
+                return plot_pose_data, plot_pose_itr, plot_pose_itr_2
+            else:
+                return plot_pose_data, plot_pose_itr
+
+        # Create the animation
+        ani = FuncAnimation(fig, update, frames=T, init_func=init, blit=True, repeat=True, interval=5)
+        plt.show()
+        # if itr == len(config_data_itrs) - 1:
+        if high_shear_stiffness == True:
+            if config_data_2 is not None:
+                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation_comparison.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+            else:
+                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+        else:
+            ani.save(filename = f"results/ns-{num_segments}/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+
+        print('Iteration ' + str(itr) + ':')
+        error_position = np.mean(np.linalg.norm(pose_data[:,1:,:2] - pose_itr[:,:,:2], axis=2))
+        print('\tmean position error: ' + str(error_position) + ' [m]')
+        error_angle = np.mean(np.abs(pose_data[:,1:,2] - pose_itr[:,:,2]))*180/np.pi
+        print('\tmean angle error: ' + str(error_angle) + ' [deg]')
+        error_metric_iterations.append(np.array([error_position, error_angle]))
+
+        if config_data_2 is not None:
+            error_position_2 = np.mean(np.linalg.norm(pose_data[:,1:,:2] - pose_itr_2[:,:,:2], axis=2))
+            print('\tmean position error: ' + str(error_position_2) + ' [m]')
+            error_angle_2 = np.mean(np.abs(pose_data[:,1:,2] - pose_itr_2[:,:,2]))*180/np.pi
+            print('\tmean angle error: ' + str(error_angle_2) + ' [deg]')
+
+    return pose_data_iterations, error_metric_iterations
+
+validation_type = 'sinusoidal_actuation' # sinusoidal_actuation or step_actuation
+high_shear_stiffness = False
+num_segments = 1
+params = {"l": 0.1 * np.ones((num_segments,))}
+params["total_length"] = np.sum(params["l"])
+eps = 1e-7
+
+if high_shear_stiffness == True:
+    true_poses = np.load(f'./data/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_true_poses.npy')
+    true_poses = np.transpose(true_poses, (0,2,1))
+
+    q_pred = np.load(f'./data/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_q_pred.npy').T
+    q_pred = np.concatenate((q_pred[:,0].reshape((q_pred.shape[0],1)), np.zeros((q_pred.shape[0],1)), q_pred[:,1].reshape((q_pred.shape[0],1))), axis=1)
+    config_data = np.zeros((true_poses.shape[0], num_segments, 3))
+    config_data[:,0,:] = q_pred[::5,:]
+
+    q_pred_2 = np.load(f'./data/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_q_pred_all_strains.npy').T
+    config_data_2 = np.zeros((true_poses.shape[0],1,3))
+    config_data_2[:,0,:] = q_pred_2[::5,:]
+else:
+    true_poses = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_true_poses.npy')
+    true_poses = np.transpose(true_poses, (0,2,1))
+
+    q_pred = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_q_pred.npy').T
+    config_data = np.zeros((true_poses.shape[0], num_segments, 3))
+    config_data[:,0,:] = q_pred[::5,:]
+
+num_cs = 21
+s = params["total_length"] / (num_cs - 1)
+seg_length = s*np.ones((num_cs - 1))
+seg_length_itrs = [seg_length, np.array([0.1])]
+
+if high_shear_stiffness == True:
+    pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps)
+    pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps, config_data_2=config_data_2)
+else:
+    pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps)
+    
+
+
+
