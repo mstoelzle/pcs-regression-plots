@@ -116,8 +116,8 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
 
         # Create the figure and axis
         fig, ax = plt.subplots()
-        ax.set_xlim(-0.15, 0.1)
-        ax.set_ylim(-0.03, 0.15)
+        ax.set_xlim(-0.15, 0.15)
+        ax.set_ylim(-0.03, 0.2)
         ax.grid(True)
 
         # Initialize the scatter plots for A and B
@@ -125,7 +125,7 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         if high_shear_stiffness == True:
             plot_pose_itr, = ax.plot([], [], 'r-o', label= 'Dynamic model - 1 segment - wo/ shear')
         else:
-            plot_pose_itr, = ax.plot([], [], 'r-o', label= 'Dynamic model - 1 segment - all strains')
+            plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Dynamic model - {num_segments} segment - all strains')
         if config_data_2 is not None:
             plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= 'Dynamic model - 1 segment - all strains')
 
@@ -155,14 +155,6 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         # Create the animation
         ani = FuncAnimation(fig, update, frames=T, init_func=init, blit=True, repeat=True, interval=5)
         plt.show()
-        # if itr == len(config_data_itrs) - 1:
-        if high_shear_stiffness == True:
-            if config_data_2 is not None:
-                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation_comparison.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
-            else:
-                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
-        else:
-            ani.save(filename = f"results/ns-{num_segments}/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
 
         print('Iteration ' + str(itr) + ':')
         error_position = np.mean(np.linalg.norm(pose_data[:,1:,:2] - pose_itr[:,:,:2], axis=2))
@@ -177,12 +169,24 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
             error_angle_2 = np.mean(np.abs(pose_data[:,1:,2] - pose_itr_2[:,:,2]))*180/np.pi
             print('\tmean angle error: ' + str(error_angle_2) + ' [deg]')
 
+        # if itr == len(config_data_itrs) - 1:
+        if high_shear_stiffness == True:
+            if config_data_2 is not None:
+                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation_comparison.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+            else:
+                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+        else:
+            ani.save(filename = f"results/ns-{num_segments}/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+
+        
+
     return pose_data_iterations, error_metric_iterations
 
 validation_type = 'sinusoidal_actuation' # sinusoidal_actuation or step_actuation
 high_shear_stiffness = False
-num_segments = 1
+num_segments = 2
 params = {"l": 0.1 * np.ones((num_segments,))}
+params = {"l": np.array([0.07, 0.1])}
 params["total_length"] = np.sum(params["l"])
 eps = 1e-7
 
@@ -202,14 +206,15 @@ else:
     true_poses = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_true_poses.npy')
     true_poses = np.transpose(true_poses, (0,2,1))
 
-    q_pred = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_q_pred.npy').T
+    q_pred = np.load(f'./data/ns-{num_segments}_noise/{validation_type}/ns-{num_segments}_q_pred.npy').T
     config_data = np.zeros((true_poses.shape[0], num_segments, 3))
-    config_data[:,0,:] = q_pred[::5,:]
+    for i in range(num_segments):
+        config_data[:,i,:] = q_pred[::5,(3*i):(3*i+3)]
 
 num_cs = 21
 s = params["total_length"] / (num_cs - 1)
 seg_length = s*np.ones((num_cs - 1))
-seg_length_itrs = [seg_length, np.array([0.1])]
+seg_length_itrs = [seg_length, params['l']]
 
 if high_shear_stiffness == True:
     pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps)
