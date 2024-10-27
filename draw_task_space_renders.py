@@ -109,6 +109,11 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
             if config_data_2 is not None:
                 pose_2 = forward_kinematics(config_data_2[:,segment_idx,:], s_segment, eps, pose_previous_frame)
                 pose_itr_2[:,id_seg,:] = pose_2
+
+        if high_shear_stiffness == True:
+            np.save(f'./data/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_pred_poses.npy', pose_itr)
+        else:
+            np.save(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_pred_poses.npy', pose_itr)
         
         pose_data_iterations.append(pose_itr)
         if config_data_2 is not None:
