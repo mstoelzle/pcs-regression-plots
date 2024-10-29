@@ -209,12 +209,18 @@ if high_shear_stiffness == True:
     config_data_2[:,0,:] = q_pred_2[::5,:]
 else:
     true_poses = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_true_poses.npy')
-    true_poses = np.transpose(true_poses, (0,2,1))
+    if validation_type == 'training':
+        true_poses = np.reshape(true_poses, (true_poses.shape[0], -1, 3))[:500]
+    else:
+        true_poses = np.transpose(true_poses, (0,2,1))
 
-    q_pred = np.load(f'./data/ns-{num_segments}_noise/{validation_type}/ns-{num_segments}_q_pred.npy').T
+    q_pred = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_q_pred.npy').T
     config_data = np.zeros((true_poses.shape[0], num_segments, 3))
     for i in range(num_segments):
-        config_data[:,i,:] = q_pred[::5,(3*i):(3*i+3)]
+        if validation_type == 'training':
+            config_data[:,i,:] = q_pred[:,(3*i):(3*i+3)]
+        else:
+            config_data[:,i,:] = q_pred[::5,(3*i):(3*i+3)]
 
 num_cs = 21
 s = params["total_length"] / (num_cs - 1)
