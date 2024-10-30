@@ -2,13 +2,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.animation import FuncAnimation
-matplotlib.rcParams['animation.ffmpeg_path'] = "C:\\Users\\Ricardo Valadas\\Downloads\\ffmpeg-7.0.2-essentials_build\\ffmpeg-7.0.2-essentials_build\\bin\\ffmpeg.exe"
-# Plotting settings
-# plt.rc('font', family='serif', serif='Times')
-# plt.rc('text', usetex=True)
-# plt.rc('xtick', labelsize=10)
-# plt.rc('ytick', labelsize=10)
-# plt.rc('axes', labelsize=10)
+# matplotlib.rcParams['animation.ffmpeg_path'] = "C:\\Users\\Ricardo Valadas\\Downloads\\ffmpeg-7.0.2-essentials_build\\ffmpeg-7.0.2-essentials_build\\bin\\ffmpeg.exe"
+
+# plotting settings
+plt.rcParams.update(
+    {
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.serif": ["Computer Modern Romand"],
+    }
+)
+
 
 def forward_kinematics(config_data, s, eps, pose_previous_frame):
     T, _ = config_data.shape
@@ -123,19 +127,22 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         fig, ax = plt.subplots()
         ax.set_xlim(-0.15, 0.15)
         ax.set_ylim(-0.03, 0.2)
+        ax.set_aspect('equal')
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
         ax.grid(True)
 
         # Initialize the scatter plots for A and B
-        plot_pose_data, = ax.plot([], [], 'b-o', label='Original image')
+        plot_pose_data, = ax.plot([], [], 'b-o', label='Ground-truth')
         if high_shear_stiffness == True:
-            plot_pose_itr, = ax.plot([], [], 'r-o', label= 'Dynamic model - 1 segment - wo/ shear')
+            plot_pose_itr, = ax.plot([], [], 'r-o', label= 'Prediction by one segment model (wo/ shear)')
         else:
-            plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Dynamic model - {num_segments} segment - all strains')
+            plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Prediction by {num_segments} segment model (all strains)')
         if config_data_2 is not None:
-            plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= 'Dynamic model - 1 segment - all strains')
+            plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= 'Prediction by one segment model (all strains)')
 
         # Initialize the legend
-        ax.legend()
+        ax.legend(loc='upper right')
 
         # Initialization function
         def init():
@@ -187,7 +194,7 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
 
     return pose_data_iterations, error_metric_iterations
 
-validation_type = 'sinusoidal_actuation' # sinusoidal_actuation or step_actuation
+validation_type = 'sinusoidal_actuation' # sinusoidal_actuation or step_actuation or training
 high_shear_stiffness = False
 num_segments = 2
 params = {"l": 0.1 * np.ones((num_segments,))}
@@ -220,7 +227,7 @@ else:
         if validation_type == 'training':
             config_data[:,i,:] = q_pred[:,(3*i):(3*i+3)]
         else:
-            config_data[:,i,:] = q_pred[::5,(3*i):(3*i+3)]
+            config_data[:,i,:] = q_pred[:,(3*i):(3*i+3)]
 
 num_cs = 21
 s = params["total_length"] / (num_cs - 1)
