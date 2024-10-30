@@ -129,17 +129,18 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         # Create the figure and axis
         dt = 1e-3
         time_arr = np.arange(0.0, 7.0, dt)[::5]
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(4.5, 3.8))
         ax.set_xlim(-0.11, 0.11)
-        ax.set_ylim(-0.03, 0.17)
+        ax.set_ylim(-0.03, 0.2)
         ax.set_aspect('equal')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
         ax.grid(True)
+        plt.tight_layout()
 
         # Initialize the scatter plots for A and B
         plot_pose_data, = ax.plot([], [], 'b-o', label='Original image')
-        plot_time = ax.text(0.02, 0.95, '', transform=ax.transAxes, fontsize=14)
+        plot_time = ax.text(0.04, 0.04, '', transform=ax.transAxes, fontsize=14)
         if high_shear_stiffness == True:
             plot_pose_itr, = ax.plot([], [], 'r-o', label=f'Prediction by {num_segments} segment model (wo/ shear)')
             if config_data_2 is not None:
@@ -152,7 +153,7 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
                 plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= f'Prediction by {num_segments} segment model (w/ noise)')
 
         # Initialize the legend
-        ax.legend(loc='upper right', fontsize=8)
+        ax.legend(loc='upper right', fontsize=7)
 
         # Initialization function
         def init():
@@ -169,7 +170,7 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         def update(frame):
             plot_pose_data.set_data(pose_data[frame,:,0], pose_data[frame,:,1])
             plot_pose_itr.set_data(pose_itr[frame,:,0], pose_itr[frame,:,1])
-            plot_time.set_text(f'T={time_arr[frame]:.3f} s')
+            plot_time.set_text(fr'$t={time_arr[frame]:.3f}$ s')
             if config_data_2 is not None:
                 plot_pose_itr_2.set_data(pose_itr_2[frame,:,0], pose_itr_2[frame,:,1])
                 return plot_pose_data, plot_pose_itr, plot_pose_itr_2, plot_time

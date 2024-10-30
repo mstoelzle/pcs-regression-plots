@@ -11,6 +11,9 @@ video_speedup_factor = duration / 23.3
 save_img_dt = duration / 5
 print(f"Saving image every {save_img_dt} seconds")
 
+# crop margin
+crop_margin = [10, 10, 25, 60]  # [top, bottom, left, right]
+
 if __name__ == "__main__":
     # read the video
     cap = cv2.VideoCapture(str(Path(video_path).expanduser()))
@@ -34,6 +37,13 @@ if __name__ == "__main__":
         )
         if time_since_last_saved >= (save_img_dt - 1e-6) or np.abs(time_current - duration) < 1e-2:
             img_path = video_path.parent / f"{video_path.stem}_{time_current:.2f}.png"
+
+            # crop the image
+            frame = frame[
+                crop_margin[0] : frame.shape[0] - crop_margin[1],
+                crop_margin[2] : frame.shape[1] - crop_margin[3],
+            ]
+
             # save the frame
             print(f"Saving frame of t={time_current} to {img_path.resolve()}")
             cv2.imwrite(str(img_path), frame)
