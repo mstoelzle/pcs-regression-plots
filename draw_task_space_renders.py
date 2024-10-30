@@ -86,6 +86,7 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         # pose of the segment frame to which the FK are being computed w.r.t
         # for the first segment, it's the base frame, which is always the same at every frame
         pose_previous_frame = np.zeros((T,3))
+        pose_previous_frame_2 = np.zeros((T,3))
         prev_segment_idx = 0
 
         pose_itr = np.zeros((T,N,3))
@@ -102,6 +103,8 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
             
             if segment_idx != prev_segment_idx:
                 pose_previous_frame = pose_itr[:, id_seg - 1, :]
+                if config_data_2 is not None:
+                    pose_previous_frame_2 = pose_itr_2[:, id_seg - 1, :]
                 prev_segment_idx = segment_idx
 
             # point coordinate along the segment in the interval [0, l_segment]
@@ -111,7 +114,7 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
             pose_itr[:,id_seg,:] = pose
 
             if config_data_2 is not None:
-                pose_2 = forward_kinematics(config_data_2[:,segment_idx,:], s_segment, eps, pose_previous_frame)
+                pose_2 = forward_kinematics(config_data_2[:,segment_idx,:], s_segment, eps, pose_previous_frame_2)
                 pose_itr_2[:,id_seg,:] = pose_2
 
         if high_shear_stiffness == True:
@@ -124,22 +127,29 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
             pose_data_iterations_2.append(pose_itr_2)
 
         # Create the figure and axis
+        dt = 1e-3
+        time_arr = np.arange(0.0, 7.0, dt)[::5]
         fig, ax = plt.subplots()
-        ax.set_xlim(-0.15, 0.15)
-        ax.set_ylim(-0.03, 0.2)
+        ax.set_xlim(-0.11, 0.11)
+        ax.set_ylim(-0.03, 0.17)
         ax.set_aspect('equal')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
         ax.grid(True)
 
         # Initialize the scatter plots for A and B
-        plot_pose_data, = ax.plot([], [], 'b-o', label='Ground-truth')
+        plot_pose_data, = ax.plot([], [], 'b-o', label='Original image')
+        plot_time = ax.text(0.02, 0.95, '', transform=ax.transAxes, fontsize=14)
         if high_shear_stiffness == True:
-            plot_pose_itr, = ax.plot([], [], 'r-o', label= 'Prediction by one segment model (wo/ shear)')
+            plot_pose_itr, = ax.plot([], [], 'r-o', label=f'Prediction by {num_segments} segment model (wo/ shear)')
+            if config_data_2 is not None:
+                plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label=f'Prediction by {num_segments} segment model (all strains)')
+        elif high_stiffness == True:
+            plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Prediction by {num_segments} segment model (sparsified strains)')
         else:
-            plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Prediction by {num_segments} segment model (all strains)')
-        if config_data_2 is not None:
-            plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= 'Prediction by one segment model (all strains)')
+            plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Prediction by {num_segments} segment model (no noise)')
+            if config_data_2 is not None:
+                plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= f'Prediction by {num_segments} segment model (w/ noise)')
 
         # Initialize the legend
         ax.legend(loc='upper right')
@@ -148,21 +158,23 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         def init():
             plot_pose_data.set_data([], [])
             plot_pose_itr.set_data([], [])
+            plot_time.set_text('')
             if config_data_2 is not None:
                 plot_pose_itr_2.set_data([], [])
-                return plot_pose_data, plot_pose_itr, plot_pose_itr_2
+                return plot_pose_data, plot_pose_itr, plot_pose_itr_2, plot_time
             else:
-                return plot_pose_data, plot_pose_itr
+                return plot_pose_data, plot_pose_itr, plot_time, plot_time
 
         # Update function
         def update(frame):
             plot_pose_data.set_data(pose_data[frame,:,0], pose_data[frame,:,1])
             plot_pose_itr.set_data(pose_itr[frame,:,0], pose_itr[frame,:,1])
+            plot_time.set_text(f'T={time_arr[frame]:.3f} s')
             if config_data_2 is not None:
                 plot_pose_itr_2.set_data(pose_itr_2[frame,:,0], pose_itr_2[frame,:,1])
-                return plot_pose_data, plot_pose_itr, plot_pose_itr_2
+                return plot_pose_data, plot_pose_itr, plot_pose_itr_2, plot_time
             else:
-                return plot_pose_data, plot_pose_itr
+                return plot_pose_data, plot_pose_itr, plot_time
 
         # Create the animation
         ani = FuncAnimation(fig, update, frames=T, init_func=init, blit=True, repeat=True, interval=5)
@@ -184,11 +196,16 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         # if itr == len(config_data_itrs) - 1:
         if high_shear_stiffness == True:
             if config_data_2 is not None:
-                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation_comparison.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation_comparison.mp4", writer=matplotlib.animation.FFMpegWriter(fps=60) )
             else:
-                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+                ani.save(filename = f"results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=60) )
+        elif high_stiffness == True:
+            ani.save(filename = f"results/ns-{num_segments}_high_stiffness/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=60) )
         else:
-            ani.save(filename = f"results/ns-{num_segments}/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=40) )
+            if config_data_2 is not None:
+                ani.save(filename = f"results/ns-{num_segments}/{validation_type}/ns-{num_segments}_task_space_animation_noise_comp.mp4", writer=matplotlib.animation.FFMpegWriter(fps=60) )
+            else:
+                ani.save(filename = f"results/ns-{num_segments}/{validation_type}/ns-{num_segments}_task_space_animation.mp4", writer=matplotlib.animation.FFMpegWriter(fps=60) )
 
         
 
@@ -196,8 +213,9 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
 
 validation_type = 'sinusoidal_actuation' # sinusoidal_actuation or step_actuation or training
 high_shear_stiffness = False
+high_stiffness = False
 num_segments = 2
-params = {"l": 0.1 * np.ones((num_segments,))}
+# params = {"l": 0.1 * np.ones((num_segments,))}
 params = {"l": np.array([0.07, 0.1])}
 params["total_length"] = np.sum(params["l"])
 eps = 1e-7
@@ -221,6 +239,23 @@ else:
     else:
         true_poses = np.transpose(true_poses, (0,2,1))
 
+    q_pred = np.load(f'./data/ns-{num_segments}_high_stiffness/{validation_type}/ns-{num_segments}_q_pred.npy').T
+    q_pred = np.concatenate((q_pred[:,0].reshape((q_pred.shape[0],1)), 
+                             q_pred[:,1].reshape((q_pred.shape[0],1)), 
+                             np.zeros((q_pred.shape[0],1)), 
+                             q_pred[:,2].reshape((q_pred.shape[0],1)),
+                             np.zeros((q_pred.shape[0],1)),
+                             q_pred[:,3].reshape((q_pred.shape[0],1))), axis=1)
+    config_data = np.zeros((true_poses.shape[0], num_segments, 3))
+    for i in range(num_segments):
+        config_data[:,i,:] = q_pred[::5,(3*i):(3*i+3)]
+else:
+    true_poses = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_true_poses.npy')
+    if validation_type == 'training':
+        true_poses = np.reshape(true_poses, (true_poses.shape[0], -1, 3))[:500]
+    else:
+        true_poses = np.transpose(true_poses, (0,2,1))
+
     q_pred = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_q_pred.npy').T
     config_data = np.zeros((true_poses.shape[0], num_segments, 3))
     for i in range(num_segments):
@@ -228,6 +263,16 @@ else:
             config_data[:,i,:] = q_pred[:,(3*i):(3*i+3)]
         else:
             config_data[:,i,:] = q_pred[:,(3*i):(3*i+3)]
+
+    q_pred_noise = np.load(f'./data/ns-{num_segments}_noise/{validation_type}/ns-{num_segments}_q_pred.npy').T
+    config_data_noise = np.zeros((true_poses.shape[0], num_segments, 3))
+    for i in range(num_segments):
+        config_data_noise[:,i,:] = q_pred_noise[::5,(3*i):(3*i+3)]
+
+    q_pred_noise = np.load(f'./data/ns-{num_segments}_noise/{validation_type}/ns-{num_segments}_q_pred.npy').T
+    config_data_noise = np.zeros((true_poses.shape[0], num_segments, 3))
+    for i in range(num_segments):
+        config_data_noise[:,i,:] = q_pred_noise[::5,(3*i):(3*i+3)]
 
 num_cs = 21
 s = params["total_length"] / (num_cs - 1)
@@ -237,8 +282,11 @@ seg_length_itrs = [seg_length, params['l']]
 if high_shear_stiffness == True:
     pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps)
     pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps, config_data_2=config_data_2)
-else:
+elif high_stiffness == True:
     pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps)
+else:
+    # pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps)
+    pose_data_iterations, error_metric_iterations = compute_task_error(true_poses, config_data, seg_length_itrs, eps, config_data_2=config_data_noise)
     
 
 

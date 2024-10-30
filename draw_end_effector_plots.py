@@ -108,9 +108,10 @@ def compute_end_effector_poses(config_data, seg_length, eps):
 
 validation_type = 'sinusoidal_actuation' # sinusoidal_actuation or step_actuation
 high_shear_stiffness = False
-num_segments = 1
-params = {"l": 0.1 * np.ones((num_segments,))}
-# params = {"l": np.array([0.07, 0.1])}
+high_stiffness = True
+num_segments = 2
+# params = {"l": 0.1 * np.ones((num_segments,))}
+params = {"l": np.array([0.07, 0.1])}
 params["total_length"] = np.sum(params["l"])
 eps = 1e-7
 
@@ -199,6 +200,60 @@ if high_shear_stiffness == True:
     plt.xlabel('Time [s]')
     plt.show()
     plt.savefig(f'results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_ee_comparison_plots_shear_vs_no_shear.pdf', bbox_inches='tight')
+elif high_stiffness == True:
+    q_true = np.load(f'./data/ns-{num_segments}_high_stiffness/{validation_type}/ns-{num_segments}_q_true_all_strains.npy').T
+    q_pred = np.load(f'./data/ns-{num_segments}_high_stiffness/{validation_type}/ns-{num_segments}_q_pred.npy').T
+    q_pred = np.concatenate((q_pred[:,0].reshape((q_pred.shape[0],1)), 
+                             q_pred[:,1].reshape((q_pred.shape[0],1)), 
+                             np.zeros((q_pred.shape[0],1)), 
+                             q_pred[:,2].reshape((q_pred.shape[0],1)),
+                             np.zeros((q_pred.shape[0],1)),
+                             q_pred[:,3].reshape((q_pred.shape[0],1))), axis=1)
+    config_data_true = np.zeros((q_true.shape[0], num_segments, 3))
+    config_data_pred = np.zeros((q_pred.shape[0], num_segments, 3))
+    for i in range(num_segments):
+        config_data_pred[:,i,:] = q_pred[:,(3*i):(3*i+3)]
+        config_data_true[:,i,:] = q_true[:,(3*i):(3*i+3)]
+
+    true_poses = np.load(f'./data/ns-{num_segments}_high_stiffness/{validation_type}/ns-{num_segments}_true_poses.npy')
+    true_poses = np.transpose(true_poses, (0,2,1))
+
+    pose_end_effector_true = compute_end_effector_poses(config_data_true, params['l'], eps)
+    pose_end_effector_pred = compute_end_effector_poses(config_data_pred, params['l'], eps)
+
+    error_position = np.linalg.norm(pose_end_effector_true[:,:2] - pose_end_effector_pred[:,:2], axis=1)
+    print('End-effector errors')
+    print('\tmean position error: ' + str(np.mean(error_position)) + ' [m]')
+    error_orientation = np.abs(pose_end_effector_true[:,2] - pose_end_effector_pred[:,2])
+    print('\tmean angle error: ' + str(np.mean(error_orientation)*180/np.pi) + ' [deg]')
+
+    t = np.arange(0.0, 7.0, 5e-3)
+    fig, ax = plt.subplots(3, 1, sharex=True)
+    ax[0].plot(t, pose_end_effector_pred[::5,0], label='Model (sparsified strains)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
+    ax[0].plot(t, true_poses[:,-1,0], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
+    ax[0].set_ylabel(r'Position $(x)$ $[m]$')
+    ax[0].set_xlim([0,7.0])
+    ax[0].grid(True)
+    ax[0].legend(bbox_to_anchor=(-0.1,1.02), loc='lower left', ncol=3)
+    # ax[0].legend(loc='upper left')
+    # ax[0].legend(bbox_to_anchor=(0.7,0.6), loc='lower left')
+
+    ax[1].plot(t, pose_end_effector_pred[::5,1], label='Model (sparsified strains)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
+    ax[1].plot(t, true_poses[:,-1,1], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
+    ax[1].set_ylabel(r'Position $(y)$ $[m]$')
+    ax[1].set_xlim([0,7.0])
+    ax[1].grid(True)
+    # ax[1].legend(loc='upper left')
+
+    ax[2].plot(t, pose_end_effector_pred[::5,2], label='Model (sparsified strains)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
+    ax[2].plot(t, true_poses[:,-1,2], label='GT', linewidth=3, linestyle='dotted', color='k', alpha=0.55)
+    ax[2].set_ylabel(r'Orientation $(\theta)$ $[rad]$')
+    ax[2].set_xlim([0,7.0])
+    ax[2].grid(True)
+
+    plt.xlabel('Time [s]')
+    plt.show()
+    plt.savefig(f'results/ns-{num_segments}_high_stiffness/{validation_type}/ns-{num_segments}_ee_comparison_plots.pdf', bbox_inches='tight')
 
 else:
     q_true = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_q_true.npy').T
