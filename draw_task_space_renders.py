@@ -147,7 +147,7 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
         elif high_stiffness == True:
             plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Prediction by {num_segments} segment model (sparsified strains)')
         else:
-            plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Prediction by {num_segments} segment model (no noise)')
+            plot_pose_itr, = ax.plot([], [], 'r-o', label= f'Prediction by {num_segments} segment model (wo/ noise)')
             if config_data_2 is not None:
                 plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= f'Prediction by {num_segments} segment model (w/ noise)')
 
@@ -232,7 +232,7 @@ if high_shear_stiffness == True:
     q_pred_2 = np.load(f'./data/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_q_pred_all_strains.npy').T
     config_data_2 = np.zeros((true_poses.shape[0],1,3))
     config_data_2[:,0,:] = q_pred_2[::5,:]
-else:
+elif high_stiffness == True:
     true_poses = np.load(f'./data/ns-{num_segments}/{validation_type}/ns-{num_segments}_true_poses.npy')
     if validation_type == 'training':
         true_poses = np.reshape(true_poses, (true_poses.shape[0], -1, 3))[:500]
@@ -267,12 +267,12 @@ else:
     q_pred_noise = np.load(f'./data/ns-{num_segments}_noise/{validation_type}/ns-{num_segments}_q_pred.npy').T
     config_data_noise = np.zeros((true_poses.shape[0], num_segments, 3))
     for i in range(num_segments):
-        config_data_noise[:,i,:] = q_pred_noise[::5,(3*i):(3*i+3)]
+        config_data_noise[:,i,:] = q_pred_noise[:,(3*i):(3*i+3)]
 
     q_pred_noise = np.load(f'./data/ns-{num_segments}_noise/{validation_type}/ns-{num_segments}_q_pred.npy').T
     config_data_noise = np.zeros((true_poses.shape[0], num_segments, 3))
     for i in range(num_segments):
-        config_data_noise[:,i,:] = q_pred_noise[::5,(3*i):(3*i+3)]
+        config_data_noise[:,i,:] = q_pred_noise[:,(3*i):(3*i+3)]
 
 num_cs = 21
 s = params["total_length"] / (num_cs - 1)
