@@ -3,11 +3,11 @@ import numpy as np
 from pathlib import Path
 
 # path to the video
-video_path = Path("results") / "ns-2" / "sinusoidal_actuation" / "ns-2_task_space_animation.mp4"
+video_path = Path("results") / "ns-2" / "sinusoidal_actuation" / "ns-2_task_space_animation_noise_comp.mp4"
 
 # dt between saved image frames
-video_speedup_factor = 7.0 / 175.0
-save_img_dt = 6.99 / 5
+video_speedup_factor = 7.0 / 23.3
+save_img_dt = 6.90 / 5
 print(f"Saving image every {save_img_dt} seconds")
 
 if __name__ == "__main__":
