@@ -152,7 +152,7 @@ def compute_task_error(pose_data, config_data, seg_length_itrs, eps, config_data
                 plot_pose_itr_2, = ax.plot([], [], '-o', color='C1', label= f'Prediction by {num_segments} segment model (w/ noise)')
 
         # Initialize the legend
-        ax.legend(loc='upper right')
+        ax.legend(loc='upper right', fontsize=8)
 
         # Initialization function
         def init():

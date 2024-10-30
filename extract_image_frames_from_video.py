@@ -6,8 +6,9 @@ from pathlib import Path
 video_path = Path("results") / "ns-2" / "sinusoidal_actuation" / "ns-2_task_space_animation_noise_comp.mp4"
 
 # dt between saved image frames
-video_speedup_factor = 7.0 / 23.3
-save_img_dt = 6.90 / 5
+duration = 7.0
+video_speedup_factor = duration / 23.3
+save_img_dt = duration / 5
 print(f"Saving image every {save_img_dt} seconds")
 
 if __name__ == "__main__":
@@ -31,7 +32,7 @@ if __name__ == "__main__":
         print(
             f"Current time: {time_current:.2f}, Time since last saved: {time_since_last_saved:.2f}"
         )
-        if time_since_last_saved >= (save_img_dt - 1e-6):
+        if time_since_last_saved >= (save_img_dt - 1e-6) or np.abs(time_current - duration) < 1e-2:
             img_path = video_path.parent / f"{video_path.stem}_{time_current:.2f}.png"
             # save the frame
             print(f"Saving frame of t={time_current} to {img_path.resolve()}")
