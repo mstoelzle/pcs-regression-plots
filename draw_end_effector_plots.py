@@ -107,11 +107,11 @@ def compute_end_effector_poses(config_data, seg_length, eps):
     return pose_end_effector
 
 validation_type = 'sinusoidal_actuation' # sinusoidal_actuation or step_actuation
-high_shear_stiffness = False
-high_stiffness = True
-num_segments = 2
-# params = {"l": 0.1 * np.ones((num_segments,))}
-params = {"l": np.array([0.07, 0.1])}
+high_shear_stiffness = True
+high_stiffness = False
+num_segments = 1
+params = {"l": 0.1 * np.ones((num_segments,))}
+# params = {"l": np.array([0.07, 0.1])}
 params["total_length"] = np.sum(params["l"])
 eps = 1e-7
 
@@ -168,30 +168,31 @@ if high_shear_stiffness == True:
     # plt.show()
     # plt.savefig(f'results/ns-{num_segments}_high_shear_stiffness/{validation_type}/ns-{num_segments}_ee_error_plots_shear_vs_no_shear.pdf', bbox_inches='tight')
 
-    fig, ax = plt.subplots(3, 1, sharex=True)
+    fig, ax = plt.subplots(3, 1, sharex=True, figsize=(3.8,3.8))
     
-    ax[0].plot(t, pose_end_effector_pred[::5,0], label='Model (wo/ shear)', linewidth=2.0, marker='s', mec='k', markevery=150, color=color_palette[1])
-    ax[0].plot(t, pose_end_effector_pred_2[::5,0], label='Model (all strains)', linewidth=2.0, marker='^', mec='k', markevery=100, color=color_palette[2])
-    ax[0].plot(t, true_poses[:,-1,0], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
-    ax[0].set_ylabel(r'Position $(x)$ $[m]$')
+    ax[0].plot(t, pose_end_effector_pred[::5,0], label='Model (wo/ shear)', linewidth=3, color=color_palette[1])#, marker='s', mec='k', markevery=150, color=color_palette[1])
+    ax[0].plot(t, pose_end_effector_pred_2[::5,0], label='Model (all strains)', linewidth=2.0, color=color_palette[2])#, marker='^', mec='k', markevery=100, color=color_palette[2])
+    ax[0].plot(t, true_poses[:,-1,0], label='GT', linewidth=4.0, linestyle='dotted', color='k', alpha=0.55)
+    ax[0].set_ylabel(r'Position $(x)$ $[m]$', fontsize=9)
     ax[0].set_xlim([0,7.0])
     ax[0].grid(True)
     # ax[0].legend(loc='upper left')
     # ax[0].legend(bbox_to_anchor=(0.7,0.6), loc='lower left')
-    ax[0].legend(bbox_to_anchor=(-0.1,1.02), loc='lower left', ncol=3)
+    # ax[0].legend(bbox_to_anchor=(-0.1,1.02), loc='lower left', ncol=3)
+    ax[0].legend(loc='upper right', fontsize=9, framealpha=0.6)
 
-    ax[1].plot(t, pose_end_effector_pred[::5,1], label='Model (wo/ shear)', linewidth=2, marker='s', mec='k', markevery=150, color=color_palette[1])
-    ax[1].plot(t, pose_end_effector_pred_2[::5,1], label='Model (all strains)', linewidth=2, marker='^', mec='k', markevery=100, color=color_palette[2])
-    ax[1].plot(t, true_poses[:,-1,1], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
-    ax[1].set_ylabel(r'Position $(y)$ $[m]$')
+    ax[1].plot(t, pose_end_effector_pred[::5,1], label='Model (wo/ shear)', linewidth=3, color=color_palette[1])#, marker='s', mec='k', markevery=150, color=color_palette[1])
+    ax[1].plot(t, pose_end_effector_pred_2[::5,1], label='Model (all strains)', linewidth=2, color=color_palette[2])#, marker='^', mec='k', markevery=100, color=color_palette[2])
+    ax[1].plot(t, true_poses[:,-1,1], label='GT', linewidth=4.0, linestyle='dotted', color='k', alpha=0.55)
+    ax[1].set_ylabel(r'Position $(y)$ $[m]$', fontsize=9)
     ax[1].set_xlim([0,7.0])
     ax[1].grid(True)
     # ax[1].legend(loc='upper left')
 
-    ax[2].plot(t, pose_end_effector_pred[::5,2], label='Model (wo/ shear)', linewidth=2, marker='s', mec='k', markevery=150, color=color_palette[1])
-    ax[2].plot(t, pose_end_effector_pred_2[::5,2], label='Model (all strains)', linewidth=2, marker='^', mec='k', markevery=100, color=color_palette[2])
-    ax[2].plot(t, true_poses[:,-1,2], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
-    ax[2].set_ylabel(r'Orientation $(\theta)$ $[rad]$')
+    ax[2].plot(t, pose_end_effector_pred[::5,2], label='Model (wo/ shear)', linewidth=3, color=color_palette[1])#, marker='s', mec='k', markevery=150, color=color_palette[1])
+    ax[2].plot(t, pose_end_effector_pred_2[::5,2], label='Model (all strains)', linewidth=2, color=color_palette[2])#, marker='^', mec='k', markevery=100)
+    ax[2].plot(t, true_poses[:,-1,2], label='GT', linewidth=4.0, linestyle='dotted', color='k', alpha=0.55)
+    ax[2].set_ylabel(r'Orientation $(\theta)$ $[rad]$', fontsize=9)
     ax[2].set_xlim([0,7.0])
     ax[2].grid(True)
     # ax[2].legend(loc='lower right')
@@ -228,26 +229,27 @@ elif high_stiffness == True:
     print('\tmean angle error: ' + str(np.mean(error_orientation)*180/np.pi) + ' [deg]')
 
     t = np.arange(0.0, 7.0, 5e-3)
-    fig, ax = plt.subplots(3, 1, sharex=True)
-    ax[0].plot(t, pose_end_effector_pred[::5,0], label='Model (sparsified strains)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
-    ax[0].plot(t, true_poses[:,-1,0], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
-    ax[0].set_ylabel(r'Position $(x)$ $[m]$')
+    fig, ax = plt.subplots(3, 1, sharex=True, figsize=(3.8,3.8))
+    ax[0].plot(t, pose_end_effector_pred[::5,0], label='Model (sparsified strains)', linewidth=2, color=color_palette[1])#, marker='s', mec='k', markevery=100)
+    ax[0].plot(t, true_poses[:,-1,0], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.8)
+    ax[0].set_ylabel(r'Position $(x)$ $[m]$', fontsize=9)
     ax[0].set_xlim([0,7.0])
     ax[0].grid(True)
     ax[0].legend(bbox_to_anchor=(-0.1,1.02), loc='lower left', ncol=3)
+    ax[0].legend(loc='upper right', fontsize=9, framealpha=0.6)
     # ax[0].legend(loc='upper left')
     # ax[0].legend(bbox_to_anchor=(0.7,0.6), loc='lower left')
 
-    ax[1].plot(t, pose_end_effector_pred[::5,1], label='Model (sparsified strains)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
-    ax[1].plot(t, true_poses[:,-1,1], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
-    ax[1].set_ylabel(r'Position $(y)$ $[m]$')
+    ax[1].plot(t, pose_end_effector_pred[::5,1], label='Model (sparsified strains)', linewidth=2, color=color_palette[1])#, marker='s', mec='k', markevery=100)
+    ax[1].plot(t, true_poses[:,-1,1], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.8)
+    ax[1].set_ylabel(r'Position $(y)$ $[m]$', fontsize=9)
     ax[1].set_xlim([0,7.0])
     ax[1].grid(True)
     # ax[1].legend(loc='upper left')
 
-    ax[2].plot(t, pose_end_effector_pred[::5,2], label='Model (sparsified strains)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
-    ax[2].plot(t, true_poses[:,-1,2], label='GT', linewidth=3, linestyle='dotted', color='k', alpha=0.55)
-    ax[2].set_ylabel(r'Orientation $(\theta)$ $[rad]$')
+    ax[2].plot(t, pose_end_effector_pred[::5,2], label='Model (sparsified strains)', linewidth=2, color=color_palette[1])#, marker='s', mec='k', markevery=100)
+    ax[2].plot(t, true_poses[:,-1,2], label='GT', linewidth=3, linestyle='dotted', color='k', alpha=0.8)
+    ax[2].set_ylabel(r'Orientation $(\theta)$ $[rad]$', fontsize=9)
     ax[2].set_xlim([0,7.0])
     ax[2].grid(True)
 
@@ -291,7 +293,7 @@ else:
     ax[0].plot(t, pose_end_effector_pred[::5,0], label='Model (no noise)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
     ax[0].plot(t, pose_end_effector_pred_noise[::5,0], label='Model (with noise)', linewidth=2, color=color_palette[2], marker='^', mec='k', markevery=100)
     ax[0].plot(t, true_poses[:,-1,0], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
-    ax[0].set_ylabel(r'Position $(x)$ $[m]$')
+    ax[0].set_ylabel(r'Position $(x)$ $[m]$', fontsize=9)
     ax[0].set_xlim([0,7.0])
     ax[0].grid(True)
     ax[0].legend(bbox_to_anchor=(-0.1,1.02), loc='lower left', ncol=3)
@@ -301,7 +303,7 @@ else:
     ax[1].plot(t, pose_end_effector_pred[::5,1], label='Model (no noise)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
     ax[1].plot(t, pose_end_effector_pred_noise[::5,1], label='Model (with noise)', linewidth=2, color=color_palette[2], marker='^', mec='k', markevery=100)
     ax[1].plot(t, true_poses[:,-1,1], label='GT', linewidth=3.5, linestyle='dotted', color='k', alpha=0.55)
-    ax[1].set_ylabel(r'Position $(y)$ $[m]$')
+    ax[1].set_ylabel(r'Position $(y)$ $[m]$', fontsize=9)
     ax[1].set_xlim([0,7.0])
     ax[1].grid(True)
     # ax[1].legend(loc='upper left')
@@ -309,7 +311,7 @@ else:
     ax[2].plot(t, pose_end_effector_pred[::5,2], label='Model (no noise)', linewidth=2, color=color_palette[1], marker='s', mec='k', markevery=100)
     ax[2].plot(t, pose_end_effector_pred_noise[::5,2], label='Model (with noise)', linewidth=2, color=color_palette[2], marker='^', mec='k', markevery=100)
     ax[2].plot(t, true_poses[:,-1,2], label='GT', linewidth=3, linestyle='dotted', color='k', alpha=0.55)
-    ax[2].set_ylabel(r'Orientation $(\theta)$ $[rad]$')
+    ax[2].set_ylabel(r'Orientation $(\theta)$ $[rad]$', fontsize=9)
     ax[2].set_xlim([0,7.0])
     ax[2].grid(True)
     # ax[2].legend(loc='upper right')
